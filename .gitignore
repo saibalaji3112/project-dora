@@ -1,0 +1,28 @@
+# ==========================
+# Python
+# ==========================
+
+backend/.env
+backend/__pycache__/
+backend/reports/
+*.pyc
+
+# ==========================
+# Node.js
+# ==========================
+
+frontend/node_modules/
+frontend/dist/
+
+# ==========================
+# VS Code
+# ==========================
+
+.vscode/
+
+# ==========================
+# Operating System
+# ==========================
+
+.DS_Store
+Thumbs.db
