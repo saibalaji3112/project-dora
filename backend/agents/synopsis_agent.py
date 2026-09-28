@@ -5,13 +5,8 @@ import time
 from google import genai
 from google.genai import errors
 from dotenv import load_dotenv
-
-from prompt import PROJECT_ANALYSIS_PROMPT
-from agents.discovery_agent import discover_projects
-from agents.research_agent import research_project
-from agents.planner_agent import generate_project_plan
-from agents.techstack_agent import recommend_tech_stack
-from agents.synopsis_agent import generate_synopsis
+from utils.json_parser import parse_json
+from prompts.synopsis_prompt import SYNOPSIS_PROMPT
 
 load_dotenv()
 
@@ -62,22 +57,54 @@ def _generate_with_retry(prompt):
     raise RuntimeError("Gemini generation failed for all fallback models")
 
 
-def analyze_project(project):
+def generate_synopsis(
+    discovery,
+    research,
+    tech_stack,
+    planner,
+    evaluation,
+):
     prompt = f"""
-{PROJECT_ANALYSIS_PROMPT}
+{SYNOPSIS_PROMPT}
 
-Project Details:
+Generate a professional project synopsis using the following information.
 
-{project}
+Project Discovery:
+{json.dumps(discovery, indent=2)}
+
+Research:
+{json.dumps(research, indent=2)}
+
+Recommended Tech Stack:
+{json.dumps(tech_stack, indent=2)}
+
+Project Plan:
+{json.dumps(planner, indent=2)}
+
+Project Evaluation:
+{json.dumps(evaluation, indent=2)}
 """
 
     response = _generate_with_retry(prompt)
 
-    text = response.text.strip()
+    try:
+        raw_text = response.text
+    except Exception:
+        raw_text = response.candidates[0].content.parts[0].text
+
+    text = raw_text.strip()
 
     if text.startswith("```json"):
         text = text.replace("```json", "").replace("```", "").strip()
     elif text.startswith("```"):
         text = text.replace("```", "").replace("```", "").strip()
 
-    return json.loads(text)
+    print("\n========== RAW GEMINI RESPONSE ==========")
+    print(text)
+    print("\n=========================================")
+
+    print("\n========== RAW GEMINI RESPONSE ==========")
+    print(raw_text)
+    print("=========================================\n")
+
+    return parse_json(raw_text)

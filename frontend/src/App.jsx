@@ -26,6 +26,8 @@ function App() {
   const [techStack, setTechStack] = useState(null);
   const [loadingTechStack, setLoadingTechStack] = useState(false);
 
+  const [evaluation, setEvaluation] = useState(null);
+
   const [synopsis, setSynopsis] = useState(null);
   const [loadingSynopsis, setLoadingSynopsis] = useState(false);
 
@@ -55,11 +57,16 @@ function App() {
 
     try {
 
-      const response = await API.post("/discover", {
-        topic,
-      });
+      const response = await API.post("/generate-project", { topic });
 
-      setProjects(response.data.result);
+      const data = response.data;
+
+      setProjects(data.discovery);
+      setResearch(data.research);
+      setTechStack(data.tech_stack);
+      setPlan(data.planner);
+      setEvaluation(data.evaluation);
+      setSynopsis(data.synopsis);
 
     } catch (error) {
 
@@ -80,7 +87,9 @@ function App() {
       const response = await API.post("/analyze", {
         project: selectedProject,
       });
+
       setAnalysis(response.data);
+      setEvaluation(response.data);
     } catch (error) {
       console.error(error);
       if (error.response?.status === 429) {
@@ -214,17 +223,22 @@ function App() {
   const generateSynopsis = async () => {
     setLoadingSynopsis(true);
     setSynopsis(null);
+
     try {
       const response = await API.post("/synopsis", {
         project: selectedProject,
       });
+
       if (response.data.error) {
         showError("Request Error", response.data.error);
         return;
       }
+
       setSynopsis(response.data);
+
     } catch (error) {
       console.error(error);
+
       if (error.response?.status === 429) {
         showError(
           "AI Request Limit Reached",
@@ -236,6 +250,7 @@ function App() {
           "Something went wrong while generating the project synopsis.\n\nPlease try again later."
         );
       }
+
     } finally {
       setLoadingSynopsis(false);
     }
@@ -505,6 +520,7 @@ function App() {
             plan={plan}
             techStack={techStack}
             synopsis={synopsis}
+            evaluation={evaluation}
           />
         )}
 

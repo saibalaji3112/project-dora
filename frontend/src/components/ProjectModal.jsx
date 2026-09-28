@@ -29,6 +29,7 @@ function ProjectModal({
   plan,
   techStack,
   synopsis,
+  evaluation,
 }) {
   if (!showModal) return null;
 
@@ -290,6 +291,30 @@ function ProjectModal({
           )}
 
           <TechStackSection techStack={techStack} />
+
+          {evaluation && (
+            <div className="result-card">
+              <h2>Project Evaluation</h2>
+
+              <p><strong>Innovation Score:</strong> {evaluation.innovation_score}</p>
+
+              <p><strong>Feasibility Score:</strong> {evaluation.feasibility_score}</p>
+
+              <p><strong>Complexity:</strong> {evaluation.complexity}</p>
+
+              <p><strong>Resume Value:</strong> {evaluation.resume_value}</p>
+
+              <p><strong>Interview Value:</strong> {evaluation.interview_value}</p>
+
+              <p><strong>Estimated Cost:</strong> {evaluation.estimated_cost}</p>
+
+              <p><strong>Development Time:</strong> {evaluation.estimated_development_time}</p>
+
+              <p><strong>Market Potential:</strong> {evaluation.market_potential}</p>
+
+              <p><strong>Risk Level:</strong> {evaluation.risk_level}</p>
+            </div>
+          )}
 
           {loadingSynopsis && (
             <LoadingSpinner

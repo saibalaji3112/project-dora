@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from services.orchestrator import generate_complete_project
+from database.db import get_projects
 
 from agent import (
     discover_projects,
@@ -45,6 +47,10 @@ class TechStackRequest(BaseModel):
 
 class SynopsisRequest(BaseModel):
     project: dict
+    research: dict | None = None
+    tech_stack: dict | None = None
+    planner: dict | None = None
+    evaluation: dict | None = None
 
 @app.post("/discover")
 def discover(request: ProjectRequest):
@@ -94,7 +100,28 @@ def techstack(request: TechStackRequest):
 
 @app.post("/synopsis")
 def synopsis(request: SynopsisRequest):
-
-    result = generate_synopsis(request.project)
+    result = generate_synopsis(
+        request.project,
+        request.research or {"status": "Not generated"},
+        request.tech_stack or {"status": "Not generated"},
+        request.planner or {"status": "Not generated"},
+        request.evaluation or {"status": "Not generated"},
+    )
 
     return result
+
+@app.post("/generate-project")
+def generate_project(request: ProjectRequest):
+    discovery = discover_projects(request.topic)
+    return {
+        "discovery": discovery,
+        "research": None,
+        "tech_stack": None,
+        "planner": None,
+        "synopsis": None,
+        "evaluation": None,
+    }
+
+@app.get("/projects")
+def all_projects():
+    return get_projects()

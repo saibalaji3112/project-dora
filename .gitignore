@@ -24,5 +24,10 @@ frontend/dist/
 # Operating System
 # ==========================
 
+# Local environment and secrets
+.venv/
+**/.env
+**/.env.*
+
 .DS_Store
 Thumbs.db
