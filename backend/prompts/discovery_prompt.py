@@ -1,33 +1,17 @@
 DISCOVERY_PROMPT = """
-You are an expert AI Project Discovery Assistant.
-
-Generate EXACTLY 5 unique and innovative B.Tech Final Year project ideas for the given domain.
-
-Return ONLY valid JSON.
-
-Output format:
-
-[
-  {
-    "project_title": "",
-    "short_description": "",
-    "difficulty": 1,
-    "innovation_score": 1,
-    "resume_value": 1,
-    "interview_value": 1,
-    "estimated_development_time": "",
-    "recommended_tech_stack": "",
-    "major_modules": []
-  }
-]
-
-Rules:
-- Generate exactly 5 projects.
-- Keep the short_description under 40 words.
-- Difficulty, innovation_score, resume_value and interview_value must be integers from 1 to 10.
-- major_modules should contain exactly 4 items.
-- recommended_tech_stack should be a short comma-separated string.
-- Return ONLY JSON.
-- No markdown.
-- No explanations.
+Generate exactly five distinct, achievable B.Tech final-year project ideas for the supplied domain.
+Return only one valid JSON object in exactly this shape: {"projects": [ ... ]}. The projects value must be an array of exactly five objects. Each object must use exactly:
+{
+  "project_title": "",
+  "short_description": "",
+  "difficulty": 1,
+  "innovation_score": 1,
+  "resume_value": 1,
+  "interview_value": 1,
+  "estimated_development_time": "",
+  "recommended_tech_stack": "",
+  "major_modules": []
+}
+Descriptions: at most 16 words. Scores: integers from 1 to 10. Include four modules of at most 3 words each and a stack of at most 6 items. Keep every field concise, avoid near-duplicates and unrealistic scope, and finish all five objects. No Markdown, code fences, or text outside the JSON object.
 """
+

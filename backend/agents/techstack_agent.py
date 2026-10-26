@@ -1,88 +1,19 @@
-import os
-import json
-import time
-
-from google import genai
-from google.genai import errors, types
-from dotenv import load_dotenv
-from utils.json_parser import parse_json
-from prompts.techstack_prompt import TECHSTACK_PROMPT
-
-load_dotenv()
-
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    http_options=types.HttpOptions(
-        timeout=45_000,
-        retry_options=types.HttpRetryOptions(attempts=1),
-    ),
-)
-
-
-def _generate_with_retry(prompt):
-    models = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"]
-
-    last_exception = None
-    for model_name in models:
-        print(f"Trying model: {model_name}")
-        for attempt in range(1, 3):
-            print(f"Attempt {attempt}/2")
-            try:
-                return client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-            except errors.ServerError as exc:
-                status_code = getattr(exc, "code", getattr(exc, "status_code", None))
-                if status_code not in (429, 503, 504):
-                    raise
-                last_exception = exc
-                if status_code == 504:
-                    print("Gemini request timed out; switching to next model...")
-                    break
-                if attempt == 1:
-                    print(f"Gemini {status_code} received. Waiting 2 seconds...")
-                    time.sleep(2)
-                    continue
-                print("Switching to next model...")
-            except errors.ClientError as exc:
-                status_code = getattr(exc, "code", getattr(exc, "status_code", None))
-                if status_code == 404:
-                    print(f"Gemini 404 for retired model {model_name}; trying next model...")
-                    last_exception = exc
-                    break
-                raise
-
-    if last_exception is not None:
-        raise last_exception
-    raise RuntimeError("Gemini generation failed for all fallback models")
+from agents.local_helpers import primary_project, project_description, project_format, project_title, stack_items
 
 
 def recommend_tech_stack(discovery, research=None):
-    prompt = f"""
-{TECHSTACK_PROMPT}
-
-Based on the following project discovery and research, recommend the most suitable technology stack.
-
-Project Discovery:
-{json.dumps(discovery, indent=2)}
-
-Research:
-{json.dumps(research, indent=2)}
-"""
-
-    response = _generate_with_retry(prompt)
-
-    try:
-        raw_text = response.text
-    except Exception:
-        raw_text = response.candidates[0].content.parts[0].text
-
-    text = raw_text.strip()
-
-    if text.startswith("```json"):
-        text = text.replace("```json", "").replace("```", "").strip()
-    elif text.startswith("```"):
-        text = text.replace("```", "").replace("```", "").strip()
-
-    return parse_json(raw_text)
+    project = primary_project(discovery)
+    context = f"{project_title(project)} {project_description(project)}".lower()
+    fmt = project_format(project)
+    selected = stack_items(project.get("Recommended Tech Stack") or project.get("recommended_tech_stack"))
+    is_ai = any(term in context for term in ("ai", "machine learning", "computer vision", "prediction", "classification", "nlp"))
+    is_robot = any(term in context for term in ("robot", "ros", "navigation", "autonomous"))
+    mobile = any(term in context for term in ("mobile", "android", "ios"))
+    if fmt == "hardware":
+        board = next((item for item in selected if any(term in item.lower() for term in ("esp32", "arduino", "raspberry", "pi pico"))), "ESP32 or Arduino-compatible board")
+        firmware = "ROS 2 with Python/C++ nodes" if is_robot else "C++ with Arduino framework"
+        return {"frontend": "Not required for the first prototype", "backend": "Not required on-device", "database": "Not required for local operation", "ai_ml": "Python with scikit-learn, only if local inference is required" if is_ai else "Not required", "cloud": "Not required for the first prototype", "deployment": "Flash firmware from Arduino IDE or PlatformIO", "programming_languages": ["Python", "C++"] if is_robot else ["C++", "Python for test scripts"], "frameworks": ["ROS 2"] if is_robot else ["Arduino framework"], "libraries": [item for item in selected if item.lower() not in board.lower()][:3], "development_tools": ["Arduino IDE or PlatformIO", "Serial monitor", "Multimeter for hardware checks"], "why_this_stack": f"{board} and a simple firmware toolchain keep the physical prototype affordable and easy to test."}
+    if fmt == "combined":
+        board = next((item for item in selected if any(term in item.lower() for term in ("esp32", "arduino", "raspberry", "sensor"))), "ESP32 with project-specific sensors")
+        return {"frontend": "React web dashboard", "backend": "FastAPI with Python", "database": "SQLite for a single-project prototype", "ai_ml": "scikit-learn for a small, measurable baseline" if is_ai else "Not required for the first version", "cloud": "Optional free-tier hosting; verify limits before deployment", "deployment": "Run locally first; deploy the API and dashboard only when needed", "programming_languages": ["Python", "C++"], "frameworks": ["React", "FastAPI", "Arduino framework"], "libraries": [item for item in selected if item.lower() not in board.lower()][:3], "development_tools": ["PlatformIO or Arduino IDE", "Git", "API client for integration checks"], "why_this_stack": f"{board} handles device-side sensing while a small Python API and dashboard support monitoring and validation."}
+    return {"frontend": "Flutter" if mobile else "React", "backend": "FastAPI with Python", "database": "SQLite for a prototype; migrate only if concurrent use requires it", "ai_ml": "scikit-learn for a measurable baseline" if is_ai else "Not required for the first version", "cloud": "Optional free-tier hosting; verify current limits before deployment", "deployment": "Local development first; deploy after core acceptance tests pass", "programming_languages": ["Dart", "Python"] if mobile else ["JavaScript", "Python"], "frameworks": ["Flutter", "FastAPI"] if mobile else ["React", "FastAPI"], "libraries": [item for item in selected if item.lower() not in {"react", "fastapi", "python", "sqlite", "flutter"}][:3], "development_tools": ["Git", "Code editor", "API client for integration checks"], "why_this_stack": "A small, widely used stack keeps the first release maintainable and leaves optional services out until requirements justify them."}

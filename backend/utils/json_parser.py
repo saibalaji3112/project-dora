@@ -40,8 +40,4 @@ def parse_json(text):
         except Exception:
             pass
 
-    print("\n========== RAW RESPONSE ==========\n")
-    print(text)
-    print("\n==================================\n")
-
-    raise Exception("Gemini returned invalid JSON.")
+    raise ValueError("The AI provider returned invalid JSON.")

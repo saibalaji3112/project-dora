@@ -1,33 +1,13 @@
-# ==========================
-# Python
-# ==========================
-
-backend/.env
-backend/__pycache__/
-backend/reports/
-*.pyc
-
-# ==========================
-# Node.js
-# ==========================
-
+.env
+**/.env
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
 frontend/node_modules/
 frontend/dist/
-
-# ==========================
-# VS Code
-# ==========================
-
-.vscode/
-
-# ==========================
-# Operating System
-# ==========================
-
-# Local environment and secrets
-.venv/
-**/.env
-**/.env.*
-
-.DS_Store
-Thumbs.db
+backend/reports/*
+!backend/reports/.gitkeep
+backend/database/dora_auth.sqlite3
+backend/database/*.sqlite
+backend/database/*.sqlite3
+backend/database/projects.json

@@ -1,108 +1,48 @@
-import os
-import time
-
-from google import genai
-from google.genai import types
-from google.genai import errors
-from dotenv import load_dotenv
-
-from prompts.discovery_prompt import DISCOVERY_PROMPT
-from utils.json_parser import parse_json
-
-load_dotenv()
-
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    http_options=types.HttpOptions(
-        timeout=45_000,
-        # The Discovery Agent manages its own short fallback sequence below.
-        retry_options=types.HttpRetryOptions(attempts=1),
-    ),
-)
-
-GENERATION_MODELS = (
-    "gemini-3.8-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-)
+from agents.local_helpers import primary_project
 
 
-def _generate_with_retry(prompt):
-    last_exception = None
-    for model_name in GENERATION_MODELS:
-        print(f"Trying model: {model_name}")
-        for attempt in range(1, 3):
-            print(f"Attempt {attempt}/2")
-            try:
-                return client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-            except (errors.ServerError, errors.ClientError) as exc:
-                # google-genai exposes this as ``code`` (not ``status_code``).
-                status_code = getattr(exc, "code", getattr(exc, "status_code", None))
-                if status_code not in (429, 503, 504):
-                    if status_code == 404:
-                        print(f"Gemini 404 for unavailable model {model_name}; trying next model...")
-                        last_exception = exc
-                        break
-                    raise
-                last_exception = exc
-                if status_code == 504:
-                    print("Gemini request timed out; switching to next model...")
-                    break
-                if attempt == 1:
-                    print(f"Gemini {status_code} received. Waiting 2 seconds...")
-                    time.sleep(2)
-                    continue
-                print("Switching to next model...")
-
-    if last_exception is not None:
-        raise last_exception
-    raise RuntimeError("Gemini generation failed for all fallback models")
-
-
-def discover_projects(topic):
-    prompt = f"""
-{DISCOVERY_PROMPT}
-
-Domain:
-{topic}
-"""
-
-    print("\n========== DISCOVERY AGENT ==========")
-    print(f"Topic: {topic}")
-    print(f"Prompt Length: {len(prompt)} characters")
-
-    start = time.perf_counter()
-
-    response = _generate_with_retry(prompt)
-    print(response.candidates[0].finish_reason)
-    end = time.perf_counter()
-
-    print(f"Discovery Time: {end - start:.2f} seconds")
-
-    try:
-        raw_text = response.text
-    except Exception:
-        raw_text = response.candidates[0].content.parts[0].text
-
-    print("\n========== RAW DISCOVERY RESPONSE ==========\n")
-    print(raw_text)
-    print("\n============================================\n")
-
-    projects = parse_json(raw_text)
+def _ideas(topic, project_type):
+    label = " ".join(str(topic or "Student project").split()).strip(" .-")[:60] or "Student project"
+    lower = label.lower()
+    if project_type == "software":
+        return [
+            (f"{label} Workflow Dashboard", f"A lightweight dashboard organizes {lower} tasks, records, and progress for a defined user group.", ["User workspace", "Record management", "Progress dashboard", "Export and review"], "React, FastAPI, SQLite, Python"),
+            (f"{label} Mobile Companion", f"A mobile-first tool helps users track {lower} tasks and receive timely, configurable reminders.", ["User profile", "Task tracking", "Reminder rules", "Activity history"], "Flutter, Python, SQLite"),
+            (f"{label} Data Insights", f"A data tool analyzes {lower} records and highlights patterns for human review, not automatic decisions.", ["Data import", "Data validation", "Trend summaries", "Results export"], "Python, Pandas, scikit-learn, Streamlit"),
+            (f"{label} Service Portal", f"A secure request portal gives {lower} users a structured way to submit requests and follow status.", ["Request intake", "Role access", "Status tracking", "Audit history"], "React, FastAPI, SQLite"),
+            (f"{label} Task Automation Tool", f"An approval-based assistant reduces repetitive {lower} work while keeping decisions with the user.", ["Rule builder", "Approval queue", "Run history", "Failure review"], "Python, FastAPI, React, SQLite"),
+        ]
+    if project_type == "hardware":
+        return [
+            (f"{label} Sensor Monitor", f"A low-cost device measures one {lower} condition and shows readings with basic threshold alerts.", ["Sensor input", "Signal filtering", "Threshold alert", "Bench testing"], "ESP32, sensors, C++, Arduino IDE"),
+            (f"Portable {label} Alert Unit", f"A battery-powered prototype detects a defined {lower} event and provides a local visual or audible alert.", ["Event sensing", "Alert logic", "Power management", "Enclosure testing"], "ESP32, sensor module, buzzer, C++"),
+            (f"{label} Control Prototype", f"A controller adjusts one {lower} process using sensor feedback and a manual safety override.", ["Sensor feedback", "Control loop", "Manual override", "Safety checks"], "Arduino, sensors, actuator, C++"),
+            (f"{label} Data Logger", f"A compact device records {lower} measurements locally for later inspection and comparison.", ["Measurement capture", "Local storage", "Timestamping", "Data export"], "ESP32, sensor module, SD card, C++"),
+            (f"Accessible {label} Interface", f"A physical interface provides clear controls and feedback for one defined {lower} task.", ["Input controls", "Status feedback", "Error handling", "Usability checks"], "Arduino, buttons, display, C++"),
+        ]
     return [
-        {
-            "Project Title": project.get("Project Title", project.get("project_title", "Untitled Project")),
-            "Short Description": project.get("Short Description", project.get("short_description", "")),
-            "Difficulty": project.get("Difficulty", project.get("difficulty", "")),
-            "Innovation Score": project.get("Innovation Score", project.get("innovation_score", "")),
-            "Resume Value": project.get("Resume Value", project.get("resume_value", "")),
-            "Interview Value": project.get("Interview Value", project.get("interview_value", "")),
-            "Estimated Development Time": project.get("Estimated Development Time", project.get("estimated_development_time", "")),
-            "Recommended Tech Stack": project.get("Recommended Tech Stack", project.get("recommended_tech_stack", "")),
-            "Major Modules": project.get("Major Modules", project.get("major_modules", [])),
-        }
-        for project in projects
+        (f"IoT {label} Monitor", f"A connected sensor device collects {lower} readings and presents them in a simple monitoring dashboard.", ["Device firmware", "Sensor validation", "Message transport", "Web dashboard"], "ESP32, MQTT, FastAPI, React"),
+        (f"Edge Alert System for {label}", f"A local device detects a defined {lower} event and sends a status update to a web interface.", ["Edge detection", "Alert rules", "API integration", "Event history"], "ESP32, Python, MQTT, SQLite"),
+        (f"Smart {label} Resource Tracker", f"A device measures {lower} resource use while software summarizes readings and flags unusual changes.", ["Device telemetry", "Data validation", "Trend view", "Threshold alerts"], "ESP32, sensors, FastAPI, React"),
+        (f"Connected {label} Service Kiosk", f"A physical kiosk captures a {lower} request and a small web service tracks its status.", ["Touch interface", "Request intake", "Queue status", "Admin dashboard"], "Raspberry Pi, Python, React, SQLite"),
+        (f"Remote {label} Operations Panel", f"A web panel monitors a small {lower} device prototype and records operator actions for review.", ["Device status", "Operator controls", "Action log", "Connectivity checks"], "ESP32, MQTT, React, FastAPI"),
     ]
+
+
+def discover_projects(topic, role=None, project_type="combined"):
+    role = role if role in {"student", "professor", "developer", "founder", "other"} else "other"
+    project_type = project_type if project_type in {"software", "hardware", "combined"} else "combined"
+    ideas = _ideas(topic, project_type)
+    return [{
+        "Project Title": title,
+        "Short Description": description,
+        "Difficulty": 4 + index % 4,
+        "Innovation Score": 5 + index % 4,
+        "Resume Value": 7 + index % 3,
+        "Interview Value": 7 + (index + 1) % 3,
+        "Estimated Development Time": f"{8 + (index % 3) * 2} weeks",
+        "Recommended Tech Stack": tech_stack,
+        "Major Modules": modules,
+        "Recommended For": role,
+        "Project Format": project_type,
+    } for index, (title, description, modules, tech_stack) in enumerate(ideas)]
